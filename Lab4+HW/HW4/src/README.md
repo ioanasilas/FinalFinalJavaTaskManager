@@ -1,0 +1,2 @@
+- comparable interface is implemented in TaskCategory and Task
+- the 3 functions that make use of them are numbers 7, 8, 9 from Main

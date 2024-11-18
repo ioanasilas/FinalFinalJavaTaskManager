@@ -28,10 +28,6 @@ public class TaskCategory implements Statsable, Comparable<TaskCategory> {
         return categoryName;
     }
 
-    public Map<String, Task> getTasks() {
-        return taskMap; // Return the map of tasks
-    }
-
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();

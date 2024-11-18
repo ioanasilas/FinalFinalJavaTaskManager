@@ -1,0 +1,36 @@
+@startuml
+
+package com.example {
+
+  class Task {
+      - String title
+      - String description
+      - int priority
+      - LocalDate deadline
+      + int compareTo(Task)
+  }
+
+  class TaskCategory {
+      - String categoryName
+      - Map<String, Task> taskMap
+      + void addTask(Task)
+      + Task getTaskByName(String)
+      + void removeTask(Task)
+  }
+
+  class TaskManager {
+      - Task currentTask
+      - static TaskCategory[] categories
+      + boolean addTaskToCategory(Task, TaskCategory)
+      + boolean removeTaskFromCategory(Task, TaskCategory)
+
+  }
+
+  TaskManager "1" --o "*" TaskCategory : manages
+  TaskManager "1" --o "1" Task : manages
+  TaskCategory "1" -- "*" Task : contains
+  Task "1" -- "1" TaskCategory : belongs to
+
+}
+
+@enduml

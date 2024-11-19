@@ -26,7 +26,7 @@ public class Task implements Comparable<Task>
 
     @Override
     public String toString() {
-        return String.format("Task: [%s] - %s (Priority: %d, Due: %s)", title, description, priority, deadline);
+        return String.format("\uD83D\uDD39  Task: [%s] - %s (Priority: %d, Due: %s)", title, description, priority, deadline);
     }
 
     @Override

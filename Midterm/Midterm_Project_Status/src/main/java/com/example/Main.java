@@ -26,7 +26,7 @@ public class Main {
             } else if (action.equalsIgnoreCase("create")) {
                 taskManager = new TaskManager(null, taskCategories, nameOfFile);
                 System.out.println("Creating the file: " + nameOfFile);
-                taskManager = new TaskManager(null, taskCategories, nameOfFile);
+                taskManager.actionOnFile(nameOfFile);
                 loadedOrCreated = true;
             } else {
                 System.out.println("Invalid action. Use 'load' or 'create' as the first argument, or no arguments.");
@@ -62,6 +62,7 @@ public class Main {
                     System.out.println("Creating new file " + fileName);
                     nameOfFile = fileName;
                     taskManager = new TaskManager(null, taskCategories, nameOfFile);
+                    taskManager.actionOnFile(nameOfFile);
                     break;
                 } else {
                     System.out.println("Invalid option, please enter 1 or 2.");
@@ -144,7 +145,6 @@ public class Main {
                             for (Task filteredTask : filteredTasks)
                             {
                                 System.out.println(filteredTask);
-                                System.out.println();
                             }
                         }
                         catch (NumberFormatException e) {
@@ -167,7 +167,6 @@ public class Main {
                         for (Task filteredTask : filteredTasks)
                         {
                             System.out.println(filteredTask);
-                            System.out.println();
                         }
                     } else {
                         System.out.println("❌ Invalid arguments. Usage: filterByDeadline <deadline>");

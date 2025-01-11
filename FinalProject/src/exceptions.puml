@@ -1,0 +1,30 @@
+  @startuml
+
+package com.example {
+  class TaskManager {
+      - Task currentTask
+      - static TaskCategory[] categories
+      + boolean addTaskToCategory(Task, TaskCategory)
+      + boolean removeTaskFromCategory(Task, TaskCategory)
+
+  }
+
+  class InvalidPriorityException <<exception>> {
+      + InvalidPriorityException(String message)
+  }
+
+  class DuplicateTaskException <<exception>> {
+      + DuplicateTaskException(String message)
+  }
+
+  class CategoryNotFoundException <<exception>> {
+      + CategoryNotFoundException(String message)
+  }
+
+    TaskManager --> InvalidPriorityException : throws
+    TaskManager --> DuplicateTaskException : throws
+    TaskManager --> CategoryNotFoundException : throws
+
+  }
+
+  @enduml

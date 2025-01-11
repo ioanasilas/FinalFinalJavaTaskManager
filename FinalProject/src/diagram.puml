@@ -1,0 +1,79 @@
+@startuml
+
+package com.example {
+
+interface Filterable {
+      + Task[] filterByPriority(int priority)
+      + Task[] filterByDeadline(String deadlineString)
+  }
+
+  class TaskFilter {
+      - String filename
+      + TaskFilter(String)
+      + Task[] filterByPriority(int priority)
+      + Task[] filterByDeadline(String deadlineInput)
+  }
+
+  interface Statsable {
+      + int getTotalTasks()
+      + double getAveragePriority()
+  }
+
+  class TaskStats {
+      - List<Task> tasks
+      + int getTotalTasks()
+      + double getAveragePriority()
+  }
+
+  class Task {
+      - String title
+      - String description
+      - int priority
+      - LocalDate deadline
+      + int compareTo(Task)
+  }
+
+  class TaskCategory {
+      - String categoryName
+      - Map<String, Task> taskMap
+      + void addTask(Task)
+      + Task getTaskByName(String)
+      + void removeTask(Task)
+  }
+
+  class TaskManager {
+      - Task currentTask
+      - static TaskCategory[] categories
+      + boolean addTaskToCategory(Task, TaskCategory)
+      + boolean removeTaskFromCategory(Task, TaskCategory)
+
+  }
+
+class InvalidPriorityException <<exception>> {
+    + InvalidPriorityException(String message)
+}
+
+class DuplicateTaskException <<exception>> {
+    + DuplicateTaskException(String message)
+}
+
+class CategoryNotFoundException <<exception>> {
+    + CategoryNotFoundException(String message)
+}
+
+  TaskManager "1" --* "*" TaskCategory : manages
+  TaskManager "1" --o "1" Task : manages
+  TaskCategory "1" -- "*" Task : contains
+  Task "1" -- "1" TaskCategory : belongs to
+  TaskStats "1" .. "1" Statsable : implements
+  TaskStats "1" --* "*" Task : manages
+  TaskFilter "1" ..|> "1" Filterable : implements
+  TaskFilter "1" --* "*" Task : filters
+
+  TaskManager --> InvalidPriorityException : throws
+  TaskManager --> DuplicateTaskException : throws
+  TaskManager --> CategoryNotFoundException : throws
+
+}
+
+@enduml

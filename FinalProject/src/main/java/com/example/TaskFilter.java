@@ -1,64 +1,48 @@
 package com.example;
-import java.io.*;
+
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
 import java.util.List;
-public class TaskFilter implements Filterable {
-    String filename;
+import java.util.stream.Collectors;
 
-    public TaskFilter(String filename) {
-        this.filename = filename;
+public class TaskFilter implements Filterable {
+    private final TaskDAO taskDAO;
+
+    public TaskFilter() {
+        this.taskDAO = new TaskDAO();
     }
 
-    // load tasks from file and filter by priority
     @Override
     public Task[] filterByPriority(int priority) {
-        List<Task> matchingTasks = new ArrayList<>();
-        try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                Task task = Task.fromCSV(line);
-                if (task.getPriority() == priority) {
-                    matchingTasks.add(task);
-                }
-            }
-        } catch (IOException e) {
-            System.out.println("❌ Error reading tasks from file: " + e.getMessage());
+        try {
+            List<Task> allTasks = taskDAO.getAllTasks(); // retrieve all tasks from the database
+            List<Task> filteredTasks = allTasks.stream()
+                    .filter(task -> task.getPriority() == priority)
+                    .collect(Collectors.toList());
+            return filteredTasks.toArray(new Task[0]);
+        } catch (Exception e) {
+            System.out.println("Error filtering tasks by priority: " + e.getMessage());
+            return new Task[0];
         }
-
-        return matchingTasks.toArray(new Task[0]);
     }
 
-    // load tasks from file and filter by deadline
     @Override
-    public Task[] filterByDeadline(String deadlineInput) {
-        List<Task> matchingTasks = new ArrayList<>();
-
-        // attempt to parse the deadline input
-        LocalDate deadline = null;
+    public Task[] filterByDeadline(String deadlineString) {
         try {
-            deadline = LocalDate.parse(deadlineInput, DateTimeFormatter.ofPattern("dd.MM.yyyy"));
-        } catch (DateTimeParseException e) {
-            System.out.println("⚠️ Invalid date format: " + deadlineInput + ". Please use dd.MM.yyyy");
-            return new Task[0];  // return an empty array if the date is invalid
-        }
+            // DateTimeFormatter to parse the custom date format
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+            LocalDate deadline = LocalDate.parse(deadlineString, formatter);
 
-        // read file and filter tasks by the parsed deadline
-        try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                Task task = Task.fromCSV(line);
-                if (task.getDeadline().isBefore(deadline) || task.getDeadline().isEqual(deadline)) {
-                    matchingTasks.add(task);
-                }
-            }
-        } catch (IOException e) {
-            System.out.println("❌ Error reading tasks from file: " + e.getMessage());
-        }
+            List<Task> allTasks = taskDAO.getAllTasks(); // Retrieve all tasks from the database
+            List<Task> filteredTasks = allTasks.stream()
+                    .filter(task -> task.getDeadline().isBefore(deadline) || task.getDeadline().isEqual(deadline))
+                    .toList();
 
-        return matchingTasks.toArray(new Task[0]);
+            return filteredTasks.toArray(new Task[0]);
+        } catch (Exception e) {
+            System.out.println("Error filtering tasks by deadline: " + e.getMessage());
+            return new Task[0];
+        }
     }
 
 }

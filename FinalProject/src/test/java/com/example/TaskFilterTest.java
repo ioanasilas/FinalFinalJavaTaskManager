@@ -2,17 +2,16 @@ package com.example;
 
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TaskFilterTest {
 
     @Test
     public void testConstructor() {
-        // create a TaskFilter object with a sample filename
-        String testFilename = "sample_tasks.csv";
-        TaskFilter taskFilter = new TaskFilter(testFilename);
+        // create a TaskFilter instance
+        TaskFilter filter = new TaskFilter();
 
-        // verify that the filename is correctly assigned
-        assertEquals(testFilename, taskFilter.filename, "the filename should match the one provided to the constructor");
+        // assert that the instance is not null
+        assertNotNull(filter, "TaskFilter instance should be created successfully.");
     }
 }

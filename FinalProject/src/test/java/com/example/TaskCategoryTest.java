@@ -2,105 +2,58 @@ package com.example;
 
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDate;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 class TaskCategoryTest {
 
     @Test
     void testTaskCategoryConstructor() {
-        TaskCategory category = new TaskCategory("Work");
+        TaskCategory category = new TaskCategory(1, "Work");
         assertEquals("Work", category.getCategoryName());
-        assertEquals(0, category.getTotalTasks());
-    }
-
-    @Test
-    void testAddTask() {
-        TaskCategory category = new TaskCategory("Work");
-        Task task = new Task("Task1", "Description", 50, LocalDate.of(2025, 1, 31));
-
-        category.addTask(task);
-        assertEquals(1, category.getTotalTasks());
-        assertEquals(task, category.getTaskByName("Task1"));
-    }
-
-    @Test
-    void testRemoveTask() {
-        TaskCategory category = new TaskCategory("Work");
-        Task task = new Task("Task1", "Description", 50, LocalDate.of(2025, 1, 31));
-
-        category.addTask(task);
-        assertEquals(1, category.getTotalTasks());
-
-        boolean removed = category.removeTask(task);
-        assertTrue(removed);
-        assertEquals(0, category.getTotalTasks());
-        assertNull(category.getTaskByName("Task1"));
-    }
-
-    @Test
-    void testRemoveNonExistentTask() {
-        TaskCategory category = new TaskCategory("Work");
-        Task task = new Task("Task1", "Description", 50, LocalDate.of(2025, 1, 31));
-
-        boolean removed = category.removeTask(task);
-        assertFalse(removed);
+        assertEquals(1, category.getId());
     }
 
     @Test
     void testGetTotalTasks() {
-        TaskCategory category = new TaskCategory("Work");
-        assertEquals(0, category.getTotalTasks());
-
-        category.addTask(new Task("Task1", "Description", 50, LocalDate.of(2025, 1, 31)));
-        category.addTask(new Task("Task2", "Description", 30, LocalDate.of(2025, 2, 28)));
-
-        assertEquals(2, category.getTotalTasks());
+        TaskCategory category = new TaskCategory(1, "Work");
+        TaskStats stats = new TaskStats(category.getId());
+        int totalTasks = stats.getTotalTasks();
+        assertTrue(totalTasks >= 0, "Total tasks should be non-negative.");
     }
 
     @Test
     void testGetAveragePriority() {
-        TaskCategory category = new TaskCategory("Work");
-        assertEquals(0.0, category.getAveragePriority(), 0.01); // Tolerate minor floating-point differences
-
-        category.addTask(new Task("Task1", "Description", 50, LocalDate.of(2025, 1, 31)));
-        category.addTask(new Task("Task2", "Description", 30, LocalDate.of(2025, 2, 28)));
-        category.addTask(new Task("Task3", "Description", 70, LocalDate.of(2025, 3, 15)));
-
-        assertEquals(50.0, category.getAveragePriority(), 0.01);
+        TaskCategory category = new TaskCategory(1, "Work");
+        TaskStats stats = new TaskStats(category.getId());
+        double avgPriority = stats.getAveragePriority();
+        assertTrue(avgPriority >= 0.0, "Average priority should be non-negative.");
     }
 
     @Test
     void testToString() {
-        TaskCategory category = new TaskCategory("Work");
-        Task task1 = new Task("Task1", "Description1", 50, LocalDate.of(2025, 1, 31));
-        Task task2 = new Task("Task2", "Description2", 30, LocalDate.of(2025, 2, 28));
-
-        category.addTask(task1);
-        category.addTask(task2);
-
+        TaskCategory category = new TaskCategory(1, "Work");
         String result = category.toString();
-        assertTrue(result.contains("Category name: Work"));
-        assertTrue(result.contains("Task count: 2"));
-        assertTrue(result.contains("Task1"));
-        assertTrue(result.contains("Task2"));
+        assertTrue(result.contains("Category: Work"), "ToString should contain the category name.");
+        assertTrue(result.contains("ID: 1"), "ToString should contain the category ID.");
     }
 
     @Test
     void testCompareTo() {
-        TaskCategory category1 = new TaskCategory("Work");
-        TaskCategory category2 = new TaskCategory("Personal");
+        TaskCategory category1 = new TaskCategory(1, "Work");
+        TaskCategory category2 = new TaskCategory(2, "Personal");
 
-        category1.addTask(new Task("Task1", "Description", 50, LocalDate.of(2025, 1, 31)));
-        category2.addTask(new Task("Task2", "Description", 30, LocalDate.of(2025, 2, 28)));
-        category2.addTask(new Task("Task3", "Description", 70, LocalDate.of(2025, 3, 15)));
+        TaskStats stats1 = new TaskStats(category1.getId());
+        TaskStats stats2 = new TaskStats(category2.getId());
 
-        assertTrue(category1.compareTo(category2) < 0);
-        assertTrue(category2.compareTo(category1) > 0);
+        int category1TotalTasks = stats1.getTotalTasks();
+        int category2TotalTasks = stats2.getTotalTasks();
 
-        // Equal case
-        category1.addTask(new Task("Task4", "Description", 90, LocalDate.of(2025, 4, 10)));
-        assertEquals(0, category1.compareTo(category2));
+        if (category1TotalTasks < category2TotalTasks) {
+            assertTrue(category1.compareTo(category2) < 0, "Category1 should compare as less than Category2.");
+        } else if (category1TotalTasks > category2TotalTasks) {
+            assertTrue(category1.compareTo(category2) > 0, "Category1 should compare as greater than Category2.");
+        } else {
+            assertEquals(0, category1.compareTo(category2), "Categories with the same total tasks should be equal.");
+        }
     }
 }

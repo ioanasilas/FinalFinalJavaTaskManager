@@ -1,174 +1,106 @@
 package com.example;
-import java.io.*;
+
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 
-// for task lifecycle
 public class TaskManager {
     private Task currentTask;
-    static TaskCategory[] categories;
-    String filename;
+    private final TaskCategoryDAO categoryDAO;
+    private final TaskDAO taskDAO;
 
-    public TaskManager(Task currentTask, TaskCategory[] categories, String filename) {
-        this.currentTask = currentTask;
-        this.categories = categories;
-        this.filename = filename;
+    public TaskManager() {
+        this.categoryDAO = new TaskCategoryDAO();
+        this.taskDAO = new TaskDAO();
     }
 
-    public boolean addTask(String title, String description, int priority, LocalDate deadline, String categoryName) throws DuplicateTaskException, CategoryNotFoundException, InvalidPriorityException {
+    // add a task to the database
+    public boolean addTask(String title, String description, int priority, LocalDate deadline, String categoryName)
+            throws DuplicateTaskException, CategoryNotFoundException, InvalidPriorityException {
         if (priority < 0 || priority > 100) {
             throw new InvalidPriorityException("Priority must be an int between 0 and 100");
         }
 
-        for (TaskCategory category : categories) {
-            if (category.getCategoryName().equalsIgnoreCase(categoryName)) {
-                if (category.getTaskByName(title) != null) {
-                    throw new DuplicateTaskException("Task with title " + title + " already exists");
-                }
-                Task task = new Task(title, description, priority, deadline);
-                category.addTask(task);
-                currentTask = task;
-                saveToFile(task, categoryName);
-                return true;
-            }
-        }
-        throw new CategoryNotFoundException("Category '" + categoryName + "' does not exist.");
-    }
-
-
-
-    public TaskCategory findCategory(String categoryName) {
-        for (TaskCategory category : categories) {
-            if (category != null && category.getCategoryName().equals(categoryName)) {
-                return category;
-            }
-        }
-        return null;
-    }
-
-    public void viewTasks(String filename) {
-        File file = new File(filename);
-
-        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-               Task task = Task.fromCSV(line);
-                System.out.println(task);
-            }
-        } catch (IOException e) {
-            System.out.println("Error reading file: " + e.getMessage());
-        }
-    }
-
-    // Lab 5 files
-    public void actionOnFile(String filename) {
-        File file = new File(filename);
         try {
-            if (file.createNewFile()) {
-                System.out.println("📁 File " + filename + " did not already exist.");
-                System.out.println(filename + " is now created.");
-            } else {
-                System.out.println("✅ File " + filename + " exists");
+            TaskCategory category = categoryDAO.getCategoryByName(categoryName);
+            if (category == null) {
+                throw new CategoryNotFoundException("Category '" + categoryName + "' does not exist.");
             }
-        } catch (IOException e) {
-            System.out.println("❌ Error creating file: " + e.getMessage());
-        }
-    }
 
-    public void saveToFile(Task task, String categoryName) {
-
-        File file = new File(filename);
-        //  append to the file
-        try (FileWriter writer = new FileWriter(file, true)) {
-            if (task != null) {
-                String csvLine = task.toCSV() + "," + categoryName + "\n";
-                writer.write(csvLine);
-                System.out.println("✅ Task saved to " + filename);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static List<Task> parseFile(String filename) {
-        try(BufferedReader reader = new BufferedReader(new FileReader(filename))) {
-            File file = new File(filename);
-            List<Task> loadedTasks = new ArrayList<>();
-            if (file.exists()) {
-                String line;
-                while ((line = reader.readLine()) != null)
-                {
-                    String [] parts = line.split(",");
-                    String title = parts[0];
-                    String categoryFromCSV = parts[parts.length - 1];
-                    for (TaskCategory category : categories) {
-                        if (category.getCategoryName().equalsIgnoreCase(categoryFromCSV))
-                        {
-                            Task task = category.getTaskByName(title);
-                            // if task is not yet in category array
-                            if (task == null) {
-                                task = Task.fromCSV(line);
-                                category.addTask(task);
-                            }
-                            loadedTasks.add(task);
-                            break;
-                        }
-                    }
+            List<Task> tasks = taskDAO.getTasksByCategory(category.getId());
+            for (Task task : tasks) {
+                if (task.getTitle().equalsIgnoreCase(title)) {
+                    throw new DuplicateTaskException("Task with title " + title + " already exists.");
                 }
             }
-            return loadedTasks;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+
+            Task task = new Task(0, title, description, priority, deadline);
+            taskDAO.addTask(task, category.getId());
+            currentTask = task;
+            return true;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error adding task: " + e.getMessage(), e);
         }
     }
 
-    public void removeFromFile(String title) {
-        boolean foundTask = false;
-        List<String> updatedLines = new ArrayList<>();
+    // remove a task by title
+    public void removeTask(String title) {
+        try {
+            // search for the task by title across all categories
+            List<TaskCategory> allCategories = categoryDAO.getAllCategories();
+            Task taskToRemove = null;
+            TaskCategory categoryOfTask = null;
 
-        try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String[] parts = line.split(",");
-                if (!parts[0].equalsIgnoreCase(title)) {
-                    updatedLines.add(line);
-                } else {
-                    for (TaskCategory category : categories) {
-                        Task task = category.getTaskByName(title);
-                        if (task != null) {
-                            category.removeTask(task);
-                            foundTask = true;
-                            break;
-                        }
+            for (TaskCategory category : allCategories) {
+                List<Task> tasks = taskDAO.getTasksByCategory(category.getId());
+                for (Task task : tasks) {
+                    if (task.getTitle().equalsIgnoreCase(title)) {
+                        taskToRemove = task;
+                        categoryOfTask = category;
+                        break;
                     }
                 }
+                if (taskToRemove != null) break; // exit loop once task is found
             }
-        } catch (IOException e) {
-            System.out.println("❌ Error reading from file: " + e.getMessage());
-        }
 
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename, false))) {
-            for (String updatedLine : updatedLines) {
-                writer.write(updatedLine);
-                writer.newLine();
+            // if task not found, show error message
+            if (taskToRemove == null) {
+                System.out.println("❌ Task '" + title + "' not found in any category.");
+                return;
             }
-            if (foundTask) {
-                System.out.println("✅ Task removed from file.");
+
+            // remove the task from db
+            taskDAO.deleteTaskById(taskToRemove.getId());
+            System.out.println("✅ Task '" + title + "' removed successfully from category '" + categoryOfTask.getCategoryName() + "'.");
+
+        } catch (Exception e) {
+            System.out.println("❌ Error removing task: " + e.getMessage());
+        }
+    }
+
+    // retrieve all tasks for a category
+    public void viewTasksByCategory(String categoryName) {
+        try {
+            TaskCategory category = categoryDAO.getCategoryByName(categoryName);
+            if (category == null) {
+                System.out.println("❌ Category '" + categoryName + "' not found.");
+                return;
+            }
+
+            List<Task> tasks = taskDAO.getTasksByCategory(category.getId());
+            if (tasks.isEmpty()) {
+                System.out.println("No tasks found for category: " + categoryName);
             } else {
-                System.out.println("❌ Task " + title + " was not found.");
+                tasks.forEach(System.out::println);
             }
-        } catch (IOException e) {
-            System.out.println("❌ Error writing to file: " + e.getMessage());
+
+        } catch (Exception e) {
+            System.out.println("Error retrieving tasks: " + e.getMessage());
         }
     }
 
 
     public Task getCurrentTask() {
         return currentTask;
-    }
-
-    public void setCurrentTask(Task currentTask) {
-        this.currentTask = currentTask;
     }
 }

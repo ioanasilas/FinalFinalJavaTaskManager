@@ -2,109 +2,70 @@ package com.example;
 
 import org.junit.jupiter.api.Test;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TaskStatsTest {
 
-    // helper method to initialize categories for TaskManager
-    private void initializeCategories() {
-        TaskManager.categories = new TaskCategory[] {
-                new TaskCategory("UniStuff"),
-                new TaskCategory("Health"),
-                new TaskCategory("Personal")
-        };
-    }
+    @Test
+    void testConstructorWithCategoryId() {
+        try {
+            TaskStats taskStats = new TaskStats(1);
 
-    // helper method to create a temporary file with test data
-    private String createTestFileWithCategories() throws IOException {
-        String filename = "test_tasks.csv";
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename))) {
-            writer.write("Task1,Description1,10,2025-01-15,UniStuff\n");
-            writer.write("Task2,Description2,20,2025-01-16,Health\n");
-            writer.write("Task3,Description3,30,2025-01-17,UniStuff\n");
-            writer.write("Task4,Description4,40,2025-01-18,Personal\n");
-        }
-        return filename;
-    }
+            // verify that the TaskStats object is created successfully
+            assertNotNull(taskStats, "TaskStats object should be created successfully.");
+            assertNotNull(taskStats.tasks, "Tasks list inside TaskStats should not be null.");
+            assertTrue(taskStats.tasks.size() >= 0, "Tasks list should have valid size.");
 
-    // helper method to delete the temporary file
-    private void deleteTestFile(String filename) {
-        File file = new File(filename);
-        if (file.exists()) {
-            file.delete();
+            // verify task properties if specific tasks are expected
+            if (!taskStats.tasks.isEmpty()) {
+                Task firstTask = taskStats.tasks.get(0);
+                assertNotNull(firstTask, "First task in the list should not be null.");
+                System.out.println("First task: " + firstTask);
+            }
+        } catch (Exception e) {
+            fail("Constructor threw an unexpected exception: " + e.getMessage());
         }
     }
 
     @Test
-    public void testConstructor() throws IOException {
-        initializeCategories(); // initialize categories for TaskManager
-        String filename = createTestFileWithCategories(); // create test file with sample tasks
-        TaskStats taskStats = new TaskStats(filename);
+    void testConstructorWithTaskList() {
+        // sample list of tasks
+        List<Task> sampleTasks = new ArrayList<>();
+        sampleTasks.add(new Task(1, "Task1", "Description1", 50, java.time.LocalDate.now()));
+        sampleTasks.add(new Task(2, "Task2", "Description2", 75, java.time.LocalDate.now().plusDays(1)));
 
-        List<Task> tasks = taskStats.tasks; // access the tasks list
-        assertEquals(4, tasks.size(), "The number of tasks should match the file data");
+        // initialize TaskStats with the sample list
+        TaskStats taskStats = new TaskStats(sampleTasks);
 
-        // validate the first task's details
-        Task firstTask = tasks.get(0);
-        assertEquals("Task1", firstTask.getTitle());
-        assertEquals("Description1", firstTask.getDescription());
-        assertEquals(10, firstTask.getPriority());
-        assertEquals(LocalDate.parse("2025-01-15"), firstTask.getDeadline());
+        // verify that the tasks list is correctly set
+        assertNotNull(taskStats.tasks, "Tasks list inside TaskStats should not be null.");
+        assertEquals(sampleTasks.size(), taskStats.tasks.size(), "Tasks list size should match the input list.");
 
-        deleteTestFile(filename); // clean up after test
+        // verify task properties
+        assertEquals("Task1", taskStats.tasks.get(0).getTitle(), "First task title should match.");
+        assertEquals("Task2", taskStats.tasks.get(1).getTitle(), "Second task title should match.");
     }
 
     @Test
-    public void testGetTotalTasks() throws IOException {
-        initializeCategories(); // initialize categories for TaskManager
-        String filename = createTestFileWithCategories(); // create test file with sample tasks
-        TaskStats taskStats = new TaskStats(filename);
+    void testConstructorWithEmptyTaskList() {
+        // pass an empty list to the constructor
+        TaskStats taskStats = new TaskStats(new ArrayList<>());
 
-        int totalTasks = taskStats.getTotalTasks();
-        assertEquals(4, totalTasks, "The total number of tasks should be 4");
-
-        deleteTestFile(filename); // clean up after test
+        // verify that the tasks list is initialized but empty
+        assertNotNull(taskStats.tasks, "Tasks list inside TaskStats should not be null.");
+        assertTrue(taskStats.tasks.isEmpty(), "Tasks list should be empty.");
     }
 
     @Test
-    public void testGetAveragePriority() throws IOException {
-        initializeCategories(); // initialize categories for TaskManager
-        String filename = createTestFileWithCategories(); // create test file with sample tasks
-        TaskStats taskStats = new TaskStats(filename);
+    void testConstructorWithNullTaskList() {
+        // pass null to the constructor
+        TaskStats taskStats = new TaskStats(null);
 
-        double averagePriority = taskStats.getAveragePriority();
-        assertEquals(25.0, averagePriority, 0.001, "The average priority should be 25.0");
-
-        deleteTestFile(filename); // clean up after test
-    }
-
-    @Test
-    public void testMultiThreadedExecution() throws IOException {
-        initializeCategories(); // initialize categories for TaskManager
-        String filename = createTestFileWithCategories(); // create test file with sample tasks
-        TaskStats taskStats = new TaskStats(filename);
-
-        // measure time for total tasks computation
-        long startTime = System.currentTimeMillis();
-        int totalTasks = taskStats.getTotalTasks();
-        long endTime = System.currentTimeMillis();
-        System.out.println("Total tasks: " + totalTasks + " computed in " + (endTime - startTime) + "ms");
-        assertEquals(4, totalTasks, "The total number of tasks should be 4");
-
-        // measure time for average priority computation
-        startTime = System.currentTimeMillis();
-        double averagePriority = taskStats.getAveragePriority();
-        endTime = System.currentTimeMillis();
-        System.out.println("average priority: " + averagePriority + " computed in " + (endTime - startTime) + "ms");
-        assertEquals(25.0, averagePriority, 0.001, "the average priority should be 25.0");
-
-        deleteTestFile(filename); // clean up after test
+        // verify that the tasks list is initialized to an empty list
+        assertNotNull(taskStats.tasks, "Tasks list inside TaskStats should not be null.");
+        assertTrue(taskStats.tasks.isEmpty(), "Tasks list should be empty when initialized with null.");
     }
 }

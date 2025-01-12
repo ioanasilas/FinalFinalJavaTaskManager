@@ -1,27 +1,30 @@
 package com.example;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 
-public class TaskCategory implements Statsable, Comparable<TaskCategory> {
-    private final String categoryName;
-    private Map<String, Task> taskMap; // store tasks by name
+public class TaskCategory implements Comparable<TaskCategory> {
+    private final String categoryName; // category name
+    private int id; // unique id for the category in the database
 
+    // constructor for categories with ID
+    public TaskCategory(int id, String categoryName) {
+        this.id = id;
+        this.categoryName = categoryName;
+    }
+
+    // constructor for new categories without an ID
     public TaskCategory(String categoryName) {
         this.categoryName = categoryName;
-        this.taskMap = new HashMap<>();
     }
 
-    public void addTask(Task task) {
-        taskMap.put(task.getTitle(), task); // add task using the task title as the key
+    // getters
+    public int getId() {
+        return id;
     }
 
-    public boolean removeTask(Task task) {
-        return taskMap.remove(task.getTitle(), task); // removes task by name
-    }
-
-    public Task getTaskByName(String taskName) {
-        return taskMap.get(taskName); // get task by name in constant time
+    public void setId(int id) { // set ID after saving to the database
+        this.id = id;
     }
 
     public String getCategoryName() {
@@ -30,34 +33,30 @@ public class TaskCategory implements Statsable, Comparable<TaskCategory> {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("\uD83D\uDCCA  Category name: ").append(categoryName).append("\n");
-        sb.append("Task count: ").append(taskMap.size()).append("\n");
-        for (Task task : taskMap.values()) {
-            sb.append(task.toString()).append("\n");
-        }
-        return sb.toString();
+        return String.format("\uD83D\uDCCA Category: %s (ID: %d)", categoryName, id);
     }
 
-    @Override
+    // total tasks calculated using TaskStats
     public int getTotalTasks() {
-        return taskMap.size(); // size of map is the total task count
+        TaskStats stats = new TaskStats(id); // calculate for this category ID
+        return stats.getTotalTasks();
     }
 
-    @Override
+    // average priority calculated using TaskStats
     public double getAveragePriority() {
-        if (taskMap.isEmpty()) {
-            return 0;
-        }
-        int totalPriority = 0;
-        for (Task task : taskMap.values()) {
-            totalPriority += task.getPriority();
-        }
-        return (double) totalPriority / taskMap.size();
+        TaskStats stats = new TaskStats(id); // calculate for this category ID
+        return stats.getAveragePriority();
     }
 
     @Override
     public int compareTo(TaskCategory other) {
         return Integer.compare(this.getTotalTasks(), other.getTotalTasks());
+    }
+
+    // static factory method for creating TaskCategory from database result set
+    public static TaskCategory fromResultSet(ResultSet rs) throws SQLException {
+        int id = rs.getInt("id");
+        String categoryName = rs.getString("name");
+        return new TaskCategory(id, categoryName);
     }
 }

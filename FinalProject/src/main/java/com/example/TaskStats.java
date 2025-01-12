@@ -1,75 +1,88 @@
 package com.example;
 
+import com.example.TaskStatsThread;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class TaskStats implements Statsable {
     final List<Task> tasks;
 
-    public TaskStats(String filename) {
-        this.tasks = TaskManager.parseFile(filename);
+    // constructor for a specific category
+    public TaskStats(int categoryId) {
+        TaskDAO taskDAO = new TaskDAO();
+
+        // get tasks for the category from the database
+        List<Task> fetchedTasks;
+        try {
+            fetchedTasks = taskDAO.getTasksByCategory(categoryId);
+        } catch (Exception e) {
+            System.out.println("Error fetching tasks: " + e.getMessage());
+            fetchedTasks = new ArrayList<>();
+        }
+        this.tasks = fetchedTasks; // initialize tasks only once
+    }
+
+    // constructor for all tasks
+    public TaskStats(List<Task> tasks) {
+        this.tasks = tasks != null ? tasks : new ArrayList<>();
     }
 
     @Override
     public int getTotalTasks() {
-        // using helper method to compute total tasks
-        return runTaskStatsThreadsAndAggregate(TaskStatsThread::getPartialTaskCount);
+        return runTaskStatsThreadsAndAggregate(TaskStatsThread::getPartialTaskCount, 4); // default is 4 threads
     }
 
     @Override
     public double getAveragePriority() {
-        // using helper method to compute total tasks and total priority
-        // getPartialPrioritySum, getPartialTaskCount is the implementation of aggregate
-        int totalPrioritySum = runTaskStatsThreadsAndAggregate(TaskStatsThread::getPartialPrioritySum);
-        int totalTasks = runTaskStatsThreadsAndAggregate(TaskStatsThread::getPartialTaskCount);
+        int totalPrioritySum = runTaskStatsThreadsAndAggregate(TaskStatsThread::getPartialPrioritySum, 4); // sum priorities
+        int totalTasks = runTaskStatsThreadsAndAggregate(TaskStatsThread::getPartialTaskCount, 4); // total task count
 
-        return (totalTasks == 0) ? 0 : (double) totalPrioritySum / totalTasks;
+        return (totalTasks == 0) ? 0 : (double) totalPrioritySum / totalTasks; // avoid division by zero
     }
 
-    /**
-     * A generic method to run TaskStatsThreads, wait for their completion, and aggregate results.
-     *
-     * @param aggregator A function that extracts the desired result from each thread.
-     * @return The aggregated result from all threads.
-     */
-    private int runTaskStatsThreadsAndAggregate(TaskStatsAggregator aggregator) {
-        int threadCount = Math.min(4, tasks.size()); // number of threads
-        List<TaskStatsThread> threads = new ArrayList<>();
-        // decide chunk based on how many tasks and threads
-        int chunkSize = tasks.size() / threadCount;
+    public void measureExecutionTimeForDifferentThreads() {
+        int[] threadCounts = {1, 2, 4, 8, 16}; // thread counts to measure execution time
 
-        // divide tasks into chunks and assign to threads
+        System.out.println("Measuring execution time for different thread counts:");
+        for (int threadCount : threadCounts) {
+            long startTime = System.nanoTime();
+            runTaskStatsThreadsAndAggregate(TaskStatsThread::getPartialTaskCount, threadCount);
+            long endTime = System.nanoTime();
+
+            long durationMs = (endTime - startTime) / 1_000_000; // nanos to millis
+            System.out.printf("Using %d thread(s): %d ms%n", threadCount, durationMs);
+        }
+    }
+
+    private int runTaskStatsThreadsAndAggregate(TaskStatsAggregator aggregator, int threadCount) {
+        List<TaskStatsThread> threads = new ArrayList<>();
+        int chunkSize = (tasks.size() + threadCount - 1) / threadCount; // divide tasks into nearly equal chunks
+
         for (int i = 0; i < threadCount; i++) {
-            // each thread starts at start, ends at end
             int start = i * chunkSize;
-            int end = (i == threadCount - 1) ? tasks.size() : start + chunkSize;
-            threads.add(new TaskStatsThread(tasks.subList(start, end)));
+            int end = Math.min(start + chunkSize, tasks.size());
+            if (start < end) {
+                threads.add(new TaskStatsThread(tasks.subList(start, end)));
+            }
         }
 
-        // start all threads
         for (TaskStatsThread thread : threads) {
             thread.start();
         }
 
-        // main thread waits for all threads to finish and aggregate results
         int result = 0;
         try {
             for (TaskStatsThread thread : threads) {
                 thread.join();
-                // same as calling result += thread.getPartialTaskCount();
-                // same as calling result += thread.getPartialPrioritySum();
                 result += aggregator.aggregate(thread);
             }
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            System.out.println("Thread execution interrupted: " + e.getMessage());
         }
-
         return result;
     }
 
-    /**
-     * Functional interface (has just one abstract method) for aggregating results from threads.
-     */
     @FunctionalInterface
     private interface TaskStatsAggregator {
         int aggregate(TaskStatsThread thread);

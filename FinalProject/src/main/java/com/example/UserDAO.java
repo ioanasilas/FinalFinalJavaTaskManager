@@ -9,25 +9,6 @@ import java.util.Optional;
 
 public class UserDAO {
 
-    public Optional<User> getUserById(int id) throws SQLException {
-        String query = "SELECT * FROM Users WHERE id = ?";
-        try (Connection connection = DatabaseUtil.getConnection();
-             PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setInt(1, id);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return Optional.of(new User(
-                            rs.getInt("id"),
-                            rs.getString("username"),
-                            rs.getString("password"),
-                            rs.getString("role")
-                    ));
-                }
-            }
-        }
-        return Optional.empty();
-    }
-
     public Optional<User> getUserByUsername(String username) throws SQLException {
         String query = "SELECT * FROM Users WHERE username = ?";
         try (Connection connection = DatabaseUtil.getConnection();

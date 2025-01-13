@@ -18,7 +18,7 @@ public class TaskFilter implements Filterable {
             List<Task> allTasks = taskDAO.getAllTasks(); // retrieve all tasks from the database
             List<Task> filteredTasks = allTasks.stream()
                     .filter(task -> task.getPriority() == priority)
-                    .collect(Collectors.toList());
+                    .toList();
             return filteredTasks.toArray(new Task[0]);
         } catch (Exception e) {
             System.out.println("Error filtering tasks by priority: " + e.getMessage());

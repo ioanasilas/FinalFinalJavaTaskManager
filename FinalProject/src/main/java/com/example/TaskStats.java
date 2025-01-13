@@ -20,7 +20,7 @@ public class TaskStats implements Statsable {
             System.out.println("Error fetching tasks: " + e.getMessage());
             fetchedTasks = new ArrayList<>();
         }
-        this.tasks = fetchedTasks; // initialize tasks only once
+        this.tasks = fetchedTasks; // initialize tasks
     }
 
     // constructor for all tasks

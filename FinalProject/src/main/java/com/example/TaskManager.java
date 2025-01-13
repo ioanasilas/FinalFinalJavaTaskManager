@@ -79,27 +79,6 @@ public class TaskManager {
         }
     }
 
-    // retrieve all tasks for a category
-    public void viewTasksByCategory(String categoryName) {
-        try {
-            TaskCategory category = categoryDAO.getCategoryByName(categoryName);
-            if (category == null) {
-                System.out.println("❌ Category '" + categoryName + "' not found.");
-                return;
-            }
-
-            List<Task> tasks = taskDAO.getTasksByCategory(category.getId());
-            if (tasks.isEmpty()) {
-                System.out.println("No tasks found for category: " + categoryName);
-            } else {
-                tasks.forEach(System.out::println);
-            }
-
-        } catch (Exception e) {
-            System.out.println("Error retrieving tasks: " + e.getMessage());
-        }
-    }
-
 
     public Task getCurrentTask() {
         return currentTask;

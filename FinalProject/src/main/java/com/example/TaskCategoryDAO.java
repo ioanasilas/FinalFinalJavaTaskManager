@@ -10,10 +10,11 @@ public class TaskCategoryDAO {
     public TaskCategory addCategory(String categoryName) throws SQLException {
         String query = "INSERT INTO Category (name) VALUES (?)";
         try (Connection connection = DatabaseUtil.getConnection();
+             // return auto generated key, autoincremented id
              PreparedStatement stmt = connection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setString(1, categoryName);
             stmt.executeUpdate();
-
+            // resultset is data got from db query
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 if (rs.next()) {
                     int id = rs.getInt(1);

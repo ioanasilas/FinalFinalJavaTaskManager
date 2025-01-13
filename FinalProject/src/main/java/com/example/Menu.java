@@ -280,6 +280,7 @@ public class Menu {
     private void handleFilterByDeadline(String[] parts) {
         if (parts.length == 2) {
             try {
+                // prettify date parsing
                 LocalDate deadline = LocalDate.parse(parts[1], DateTimeFormatter.ofPattern("dd.MM.yyyy"));
                 TaskDAO taskDAO = new TaskDAO();
 
@@ -290,6 +291,8 @@ public class Menu {
                     tasks = taskDAO.getTasksByUser(loggedInUser.getId());
                 }
 
+                // only tasks with deadlines on or before deadline are included in stream
+                // include the filtered stream into a new list
                 List<Task> filteredTasks = tasks.stream()
                         .filter(t -> !t.getDeadline().isAfter(deadline))
                         .toList();

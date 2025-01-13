@@ -11,6 +11,7 @@ public class TaskStatsThread extends Thread {
         this.tasks = tasks;
     }
 
+    // when we start thread this runs
     @Override
     public void run() {
         for (Task task : tasks) {

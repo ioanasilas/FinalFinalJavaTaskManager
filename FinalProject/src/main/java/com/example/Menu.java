@@ -14,22 +14,96 @@ public class Menu {
     private final Scanner scanner;
     private final TaskManager taskManager;
     private final TaskCategoryDAO categoryDAO;
+    private final UserDAO userDAO;
+    private User loggedInUser;
 
     public Menu(TaskCategory[] taskCategories) {
         this.scanner = new Scanner(System.in);
         this.taskManager = new TaskManager();
         this.categoryDAO = new TaskCategoryDAO();
+        this.userDAO = new UserDAO();
     }
 
     public void start() {
         while (true) {
-            printMenu();
-            String command = scanner.nextLine().trim();
-            if (command.equalsIgnoreCase("exit")) {
-                System.out.println("Exiting. Goodbye!");
-                break;
+            if (loggedInUser == null) {
+                showPreMenu();
+            } else {
+                printMenu();
+                String command = scanner.nextLine().trim();
+                if (command.equalsIgnoreCase("exit")) {
+                    System.out.println("Exiting. Goodbye!");
+                    break;
+                }
+                handleCommand(command);
             }
-            handleCommand(command);
+        }
+    }
+
+    private void showPreMenu() {
+        System.out.println("\n\uD83C\uDF10 Welcome to Task Manager");
+        System.out.println("1. Login");
+        System.out.println("2. Register");
+        System.out.println("3. Exit");
+        System.out.print("Choose an option: ");
+        String choice = scanner.nextLine().trim();
+
+        switch (choice) {
+            case "1":
+                handleLogin();
+                break;
+            case "2":
+                handleRegister();
+                break;
+            case "3":
+                System.out.println("Goodbye!");
+                System.exit(0);
+                break;
+            default:
+                System.out.println("❌ Invalid choice. Please try again.");
+        }
+    }
+
+    private void handleLogin() {
+        System.out.print("Enter username: ");
+        String username = scanner.nextLine().trim();
+        System.out.print("Enter password: ");
+        String password = scanner.nextLine().trim();
+
+        try {
+            User user = userDAO.getUserByUsername(username)
+                    .filter(u -> u.getPassword().equals(password))
+                    .orElse(null);
+
+            if (user != null) {
+                loggedInUser = user;
+                System.out.println("✅ Login successful! Welcome, " + loggedInUser.getUsername() + " (" + loggedInUser.getRole() + ").");
+            } else {
+                System.out.println("❌ Invalid username or password. Please try again.");
+            }
+        } catch (SQLException e) {
+            System.out.println("❌ Error during login: " + e.getMessage());
+        }
+    }
+
+    private void handleRegister() {
+        System.out.print("Enter a new username: ");
+        String username = scanner.nextLine().trim();
+        System.out.print("Enter a new password: ");
+        String password = scanner.nextLine().trim();
+        System.out.print("Enter role (Admin/User/Viewer): ");
+        String role = scanner.nextLine().trim();
+
+        try {
+            if (userDAO.getUserByUsername(username).isPresent()) {
+                System.out.println("❌ Username already exists. Please try a different one.");
+                return;
+            }
+
+            userDAO.createUser(username, password, role);
+            System.out.println("✅ Registration successful! You can now log in.");
+        } catch (SQLException e) {
+            System.out.println("❌ Error during registration: " + e.getMessage());
         }
     }
 
@@ -46,8 +120,8 @@ public class Menu {
         System.out.println("9. viewCategories");
         System.out.println("10. viewTasksByCategory <category name>");
         System.out.println("11. measureExecutionTime");
-        System.out.println("12. Exit");
-        System.out.print("Enter your command:");
+        System.out.println("12. Logout");
+        System.out.print("Enter your command: ");
     }
 
     private void handleCommand(String command) {
@@ -99,6 +173,9 @@ public class Menu {
                 case "measureexecutiontime":
                     handleMeasureExecutionTime();
                     break;
+                case "logout":
+                    handleLogout();
+                    break;
                 default:
                     System.out.println("❌ Invalid command.");
             }
@@ -108,6 +185,11 @@ public class Menu {
     }
 
     private void handleAddTask(String[] parts) throws Exception {
+        if (isViewer(loggedInUser)) {
+            System.out.println("❌ Viewers are not allowed to add tasks.");
+            return;
+        }
+
         if (parts.length == 6) {
             String title = parts[1];
             String description = parts[2];
@@ -123,7 +205,7 @@ public class Menu {
 
             String category = parts[5];
 
-            if (taskManager.addTask(title, description, priority, dueDate, category)) {
+            if (taskManager.addTask(title, description, priority, dueDate, category, loggedInUser.getId())) {
                 System.out.println("✅ Task added successfully.");
             }
         } else {
@@ -131,15 +213,28 @@ public class Menu {
         }
     }
 
+
+    private void handleLogout() {
+        System.out.println("Logging out...");
+        loggedInUser = null;
+        showPreMenu();
+    }
+
+
     private void handleRemoveTask(String[] parts) {
+        if (!isAdmin(loggedInUser)) {
+            System.out.println("❌ Only admins can remove tasks.");
+            return;
+        }
+
         if (parts.length == 2) {
             String title = parts[1];
-
-            taskManager.removeTask(title); // No category needed for this version
+            taskManager.removeTask(title);
         } else {
             System.out.println("❌ Invalid arguments. Usage: removeTask <title>");
         }
     }
+
 
     private void handleFilterByPriority(String[] parts) {
         if (parts.length == 2) {
@@ -167,7 +262,19 @@ public class Menu {
         try {
             TaskDAO taskDAO = new TaskDAO();
             List<Task> allTasks = taskDAO.getAllTasks();
-            System.out.println("\uD83C\uDF8F Total tasks: " + allTasks.size());
+
+            if (allTasks.isEmpty()) {
+                System.out.println("🎯 No tasks available to calculate stats.");
+                return;
+            }
+
+            TaskStats stats = new TaskStats(allTasks);
+
+            int totalTasks = stats.getTotalTasks(); // uses the precomputed thread-based thing
+            double averagePriority = stats.getAveragePriority(); // same
+
+            System.out.println("🎯 Total tasks: " + totalTasks);
+            System.out.println("🎯 Average priority: " + String.format("%.2f", averagePriority));
         } catch (SQLException e) {
             System.out.println("❌ Error calculating stats: " + e.getMessage());
         }
@@ -205,6 +312,11 @@ public class Menu {
 
     private void handleViewTasks() {
         try {
+            if (isViewer(loggedInUser)) {
+                System.out.println("❌ Viewers can only view categories.");
+                return;
+            }
+
             TaskDAO taskDAO = new TaskDAO();
             List<Task> allTasks = taskDAO.getAllTasks();
             printTasks(allTasks.toArray(new Task[0]));
@@ -212,6 +324,7 @@ public class Menu {
             System.out.println("❌ Error retrieving tasks: " + e.getMessage());
         }
     }
+
 
     private void handleViewTasksByCategory(String[] parts) {
         if (parts.length == 2) {
@@ -235,6 +348,7 @@ public class Menu {
         }
     }
 
+
     private void handleMeasureExecutionTime() {
         try {
             TaskDAO taskDAO = new TaskDAO();
@@ -254,5 +368,17 @@ public class Menu {
                 System.out.println(task);
             }
         }
+    }
+
+    private boolean isAdmin(User user) {
+        return "Admin".equalsIgnoreCase(user.getRole());
+    }
+
+    private boolean isUser(User user) {
+        return "User".equalsIgnoreCase(user.getRole());
+    }
+
+    private boolean isViewer(User user) {
+        return "Viewer".equalsIgnoreCase(user.getRole());
     }
 }

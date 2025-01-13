@@ -6,9 +6,9 @@ import java.util.List;
 
 public class TaskDAO {
 
-    // add a task to the database
-    public void addTask(Task task, int categoryId) throws SQLException {
-        String query = "INSERT INTO Task (title, description, priority, deadline, category_id) VALUES (?, ?, ?, ?, ?)";
+    // Add a task to the database with user ID
+    public void addTask(Task task, int categoryId, int userId) throws SQLException {
+        String query = "INSERT INTO Task (title, description, priority, deadline, category_id, user_id) VALUES (?, ?, ?, ?, ?, ?)";
         try (Connection connection = DatabaseUtil.getConnection();
              PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setString(1, task.getTitle());
@@ -16,27 +16,46 @@ public class TaskDAO {
             stmt.setInt(3, task.getPriority());
             stmt.setDate(4, Date.valueOf(task.getDeadline()));
             stmt.setInt(5, categoryId);
+            stmt.setInt(6, userId);
             stmt.executeUpdate();
         }
     }
 
-    // retrieve tasks by category id from the database
+    // Retrieve tasks by category ID
     public List<Task> getTasksByCategory(int categoryId) throws SQLException {
         String query = "SELECT * FROM Task WHERE category_id = ?";
         List<Task> tasks = new ArrayList<>();
         try (Connection connection = DatabaseUtil.getConnection();
              PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setInt(1, categoryId);
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                Task task = Task.fromResultSet(rs); // reuse Task's fromResultSet method
-                tasks.add(task);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Task task = Task.fromResultSet(rs);
+                    tasks.add(task);
+                }
             }
         }
         return tasks;
     }
 
-    // retrieve all tasks from the database
+    // Retrieve tasks by user ID
+    public List<Task> getTasksByUser(int userId) throws SQLException {
+        String query = "SELECT * FROM Task WHERE user_id = ?";
+        List<Task> tasks = new ArrayList<>();
+        try (Connection connection = DatabaseUtil.getConnection();
+             PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, userId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Task task = Task.fromResultSet(rs);
+                    tasks.add(task);
+                }
+            }
+        }
+        return tasks;
+    }
+
+    // Retrieve all tasks from the database
     public List<Task> getAllTasks() throws SQLException {
         String query = "SELECT * FROM Task";
         List<Task> tasks = new ArrayList<>();
@@ -44,14 +63,14 @@ public class TaskDAO {
              Statement stmt = connection.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
             while (rs.next()) {
-                Task task = Task.fromResultSet(rs); // reuse Task's fromResultSet method
+                Task task = Task.fromResultSet(rs);
                 tasks.add(task);
             }
         }
         return tasks;
     }
 
-    // delete a task by id from the database
+    // Delete a task by ID
     public boolean deleteTaskById(int taskId) throws SQLException {
         String query = "DELETE FROM Task WHERE id = ?";
         try (Connection connection = DatabaseUtil.getConnection();
@@ -61,6 +80,5 @@ public class TaskDAO {
             return rowsAffected > 0;
         }
     }
-
-
 }
+

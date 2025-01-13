@@ -14,7 +14,7 @@ public class TaskManager {
     }
 
     // add a task to the database
-    public boolean addTask(String title, String description, int priority, LocalDate deadline, String categoryName)
+    public boolean addTask(String title, String description, int priority, LocalDate deadline, String categoryName, int userId)
             throws DuplicateTaskException, CategoryNotFoundException, InvalidPriorityException {
         if (priority < 0 || priority > 100) {
             throw new InvalidPriorityException("Priority must be an int between 0 and 100");
@@ -34,7 +34,7 @@ public class TaskManager {
             }
 
             Task task = new Task(0, title, description, priority, deadline);
-            taskDAO.addTask(task, category.getId());
+            taskDAO.addTask(task, category.getId(), userId); // Pass userId here
             currentTask = task;
             return true;
 
@@ -42,6 +42,7 @@ public class TaskManager {
             throw new RuntimeException("Error adding task: " + e.getMessage(), e);
         }
     }
+
 
     // remove a task by title
     public void removeTask(String title) {

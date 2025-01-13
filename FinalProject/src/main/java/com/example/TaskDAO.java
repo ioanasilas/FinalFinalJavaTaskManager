@@ -80,5 +80,21 @@ public class TaskDAO {
             return rowsAffected > 0;
         }
     }
+
+    public List<Task> getTasksByUserAndCategory(int userId, int categoryId) throws SQLException {
+        String query = "select * from Task where user_id = ? and category_id = ?";
+        List<Task> tasks = new ArrayList<>();
+        try (Connection connection = DatabaseUtil.getConnection();
+             PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, userId);
+            stmt.setInt(2, categoryId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    tasks.add(Task.fromResultSet(rs));
+                }
+            }
+        }
+        return tasks;
+    }
 }
 

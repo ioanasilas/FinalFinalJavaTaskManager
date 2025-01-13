@@ -33,7 +33,7 @@ public class Menu {
                 String command = scanner.nextLine().trim();
                 if (command.equalsIgnoreCase("exit")) {
                     System.out.println("Exiting. Goodbye!");
-                    break;
+                    System.exit(0);
                 }
                 handleCommand(command);
             }
@@ -108,7 +108,16 @@ public class Menu {
     }
 
     private void printMenu() {
-        System.out.println("\n\uD83D\uDD77  Available Commands:");
+        // short disclaimers per role
+        if (isViewer(loggedInUser)) {
+            System.out.println("ℹ️ note: you have read-only access. some commands won't work.");
+        } else if (isUser(loggedInUser)) {
+            System.out.println("ℹ️ note: you can view and add tasks, but some commands (like remove) are admin only.");
+        } else {
+            System.out.println("ℹ️ note: you are an admin, you have full privileges.");
+        }
+
+        System.out.println("\n\uD83D\uDD77  available commands:");
         System.out.println("1. addTask <title> <description> <priority> <due date> <category>");
         System.out.println("2. removeTask <title>");
         System.out.println("3. filterByPriority <priority>");
@@ -121,8 +130,9 @@ public class Menu {
         System.out.println("10. viewTasksByCategory <category name>");
         System.out.println("11. measureExecutionTime");
         System.out.println("12. Logout");
-        System.out.print("Enter your command: ");
+        System.out.print("enter your command: ");
     }
+
 
     private void handleCommand(String command) {
         Pattern pattern = Pattern.compile("\"([^\"]*)\"|\\S+");
@@ -184,6 +194,7 @@ public class Menu {
         }
     }
 
+    // add based on user id
     private void handleAddTask(String[] parts) throws Exception {
         if (isViewer(loggedInUser)) {
             System.out.println("❌ Viewers are not allowed to add tasks.");
@@ -220,7 +231,7 @@ public class Menu {
         showPreMenu();
     }
 
-
+    // only admins remove
     private void handleRemoveTask(String[] parts) {
         if (!isAdmin(loggedInUser)) {
             System.out.println("❌ Only admins can remove tasks.");
@@ -235,106 +246,241 @@ public class Menu {
         }
     }
 
-
+    // each user has its own
     private void handleFilterByPriority(String[] parts) {
         if (parts.length == 2) {
-            int priority = Integer.parseInt(parts[1]);
-            TaskFilter filter = new TaskFilter();
-            Task[] filteredTasks = filter.filterByPriority(priority);
-            printTasks(filteredTasks);
+            try {
+                int priority = Integer.parseInt(parts[1]);
+                TaskDAO taskDAO = new TaskDAO();
+
+                List<Task> tasks;
+                if (isAdmin(loggedInUser)) {
+                    // admin sees all tasks
+                    tasks = taskDAO.getAllTasks();
+                } else {
+                    // user sees only their tasks
+                    tasks = taskDAO.getTasksByUser(loggedInUser.getId());
+                }
+
+                // now filter from that list
+                List<Task> filteredTasks = tasks.stream()
+                        .filter(t -> t.getPriority() == priority)
+                        .toList();
+
+                printTasks(filteredTasks.toArray(new Task[0]));
+            } catch (NumberFormatException | SQLException e) {
+                System.out.println("❌ error filtering tasks by priority: " + e.getMessage());
+            }
         } else {
-            System.out.println("❌ Invalid arguments. Usage: filterByPriority <priority>");
+            System.out.println("❌ invalid arguments. usage: filterByPriority <priority>");
         }
     }
 
+    // users filter their own, admin every
     private void handleFilterByDeadline(String[] parts) {
         if (parts.length == 2) {
-            String deadline = parts[1];
-            TaskFilter filter = new TaskFilter();
-            Task[] filteredTasks = filter.filterByDeadline(deadline);
-            printTasks(filteredTasks);
+            try {
+                LocalDate deadline = LocalDate.parse(parts[1], DateTimeFormatter.ofPattern("dd.MM.yyyy"));
+                TaskDAO taskDAO = new TaskDAO();
+
+                List<Task> tasks;
+                if (isAdmin(loggedInUser)) {
+                    tasks = taskDAO.getAllTasks();
+                } else {
+                    tasks = taskDAO.getTasksByUser(loggedInUser.getId());
+                }
+
+                List<Task> filteredTasks = tasks.stream()
+                        .filter(t -> !t.getDeadline().isAfter(deadline))
+                        .toList();
+
+                printTasks(filteredTasks.toArray(new Task[0]));
+            } catch (DateTimeParseException | SQLException e) {
+                System.out.println("❌ error filtering tasks by deadline: " + e.getMessage());
+            }
         } else {
-            System.out.println("❌ Invalid arguments. Usage: filterByDeadline <deadline>");
+            System.out.println("❌ invalid arguments. usage: filterByDeadline <deadline>");
         }
     }
 
+    // user specific
     private void handleOverallStats() {
         try {
             TaskDAO taskDAO = new TaskDAO();
-            List<Task> allTasks = taskDAO.getAllTasks();
+            List<Task> tasks;
 
-            if (allTasks.isEmpty()) {
-                System.out.println("🎯 No tasks available to calculate stats.");
+            if (isViewer(loggedInUser)) {
+                // viewers can't see stats
+                System.out.println("❌ viewer is read-only, cannot view stats.");
+                return;
+            } else if (isUser(loggedInUser)) {
+                // user only sees their own tasks
+                tasks = taskDAO.getTasksByUser(loggedInUser.getId());
+            } else {
+                // admin sees all tasks
+                tasks = taskDAO.getAllTasks();
+            }
+
+            if (tasks.isEmpty()) {
+                System.out.println("🎯 no tasks available to calculate stats.");
                 return;
             }
 
-            TaskStats stats = new TaskStats(allTasks);
+            TaskStats stats = new TaskStats(tasks);
+            int totalTasks = stats.getTotalTasks();
+            double averagePriority = stats.getAveragePriority();
 
-            int totalTasks = stats.getTotalTasks(); // uses the precomputed thread-based thing
-            double averagePriority = stats.getAveragePriority(); // same
+            System.out.println("🎯 total tasks (for your role): " + totalTasks);
+            System.out.println("🎯 average priority: " + String.format("%.2f", averagePriority));
 
-            System.out.println("🎯 Total tasks: " + totalTasks);
-            System.out.println("🎯 Average priority: " + String.format("%.2f", averagePriority));
         } catch (SQLException e) {
-            System.out.println("❌ Error calculating stats: " + e.getMessage());
+            System.out.println("❌ error calculating stats: " + e.getMessage());
         }
     }
 
+    // viewers see their own, admins everything
     private void handleCategoryStats(String[] parts) {
+        // viewer can't see stats
+        if (isViewer(loggedInUser)) {
+            System.out.println("❌ viewer is read-only, cannot view stats.");
+            return;
+        }
+
         if (parts.length == 2) {
             String categoryName = parts[1];
             try {
                 TaskCategory category = categoryDAO.getCategoryByName(categoryName);
-                if (category != null) {
-                    System.out.println("\uD83C\uDF8F Total tasks: " + category.getTotalTasks());
-                    System.out.println("Avg priority: " + category.getAveragePriority());
-                } else {
-                    System.out.println("❌ Category not found.");
+                if (category == null) {
+                    System.out.println("❌ category not found.");
+                    return;
                 }
+
+                TaskDAO taskDAO = new TaskDAO();
+                List<Task> tasks;
+
+                if (isAdmin(loggedInUser)) {
+                    // admin sees all tasks in this category
+                    tasks = taskDAO.getTasksByCategory(category.getId());
+                } else {
+                    // user sees only their tasks in this category
+                    tasks = taskDAO.getTasksByUserAndCategory(loggedInUser.getId(), category.getId());
+                }
+
+                if (tasks.isEmpty()) {
+                    System.out.println("no tasks found in this category for your role.");
+                    return;
+                }
+
+                // compute stats
+                TaskStats stats = new TaskStats(tasks);
+                System.out.println("\uD83C\uDF8F total tasks: " + stats.getTotalTasks());
+                System.out.println("avg priority: " + stats.getAveragePriority());
             } catch (SQLException e) {
-                System.out.println("❌ Error calculating stats: " + e.getMessage());
+                System.out.println("❌ error calculating stats: " + e.getMessage());
             }
         } else {
-            System.out.println("❌ Invalid arguments. Usage: categoryStats <category name>");
+            System.out.println("❌ invalid arguments. usage: categoryStats <category name>");
         }
     }
 
+// admin everything, user theirs
     private void handleSortTasksByDeadline() {
+        // viewer has no access
+        if (isViewer(loggedInUser)) {
+            System.out.println("❌ viewers do not have access to tasks.");
+            return;
+        }
+
         try {
             TaskDAO taskDAO = new TaskDAO();
-            List<Task> allTasks = taskDAO.getAllTasks();
-            allTasks.sort(Task::compareTo);
-            printTasks(allTasks.toArray(new Task[0]));
+            List<Task> tasks;
+
+            if (isAdmin(loggedInUser)) {
+                // admin sees all tasks
+                tasks = taskDAO.getAllTasks();
+            } else {
+                // regular user sees only their tasks
+                tasks = taskDAO.getTasksByUser(loggedInUser.getId());
+            }
+
+            // sort by compareTo (deadline then priority)
+            tasks.sort(Task::compareTo);
+
+            // print results
+            printTasks(tasks.toArray(new Task[0]));
         } catch (SQLException e) {
-            System.out.println("❌ Error sorting tasks: " + e.getMessage());
+            System.out.println("❌ error sorting tasks: " + e.getMessage());
         }
     }
+
 
     private void handleViewTasks() {
         try {
+            // if admin, get all tasks
+            // if user, get only tasks for that user
+            // if viewer, show error
             if (isViewer(loggedInUser)) {
-                System.out.println("❌ Viewers can only view categories.");
+                System.out.println("❌ viewers can only view categories.");
                 return;
             }
 
             TaskDAO taskDAO = new TaskDAO();
-            List<Task> allTasks = taskDAO.getAllTasks();
-            printTasks(allTasks.toArray(new Task[0]));
+            List<Task> tasks;
+            if (isAdmin(loggedInUser)) {
+                tasks = taskDAO.getAllTasks();
+            } else {
+                tasks = taskDAO.getTasksByUser(loggedInUser.getId());
+            }
+
+            printTasks(tasks.toArray(new Task[0]));
         } catch (SQLException e) {
-            System.out.println("❌ Error retrieving tasks: " + e.getMessage());
+            System.out.println("❌ error retrieving tasks: " + e.getMessage());
         }
     }
 
-
+// viewer no, user access to own
     private void handleViewTasksByCategory(String[] parts) {
+        // viewer has no access
+        if (isViewer(loggedInUser)) {
+            System.out.println("❌ viewers do not have access to tasks.");
+            return;
+        }
+
         if (parts.length == 2) {
             String categoryName = parts[1];
-            taskManager.viewTasksByCategory(categoryName);
+            try {
+                TaskCategory category = categoryDAO.getCategoryByName(categoryName);
+                if (category == null) {
+                    System.out.println("❌ category not found.");
+                    return;
+                }
+
+                TaskDAO taskDAO = new TaskDAO();
+                List<Task> tasks;
+
+                if (isAdmin(loggedInUser)) {
+                    // admin sees tasks from any user in this category
+                    tasks = taskDAO.getTasksByCategory(category.getId());
+                } else {
+                    // regular user sees only their own tasks in this category
+                    tasks = taskDAO.getTasksByUserAndCategory(loggedInUser.getId(), category.getId());
+                }
+
+                if (tasks.isEmpty()) {
+                    System.out.println("no tasks found for category: " + categoryName);
+                } else {
+                    tasks.forEach(System.out::println);
+                }
+            } catch (SQLException e) {
+                System.out.println("❌ error retrieving tasks by category: " + e.getMessage());
+            }
         } else {
-            System.out.println("❌ Invalid arguments. Usage: viewTasksByCategory <category name>");
+            System.out.println("❌ invalid arguments. usage: viewTasksByCategory <category name>");
         }
     }
 
+
+    // everyone, everything
     private void handleViewCategories() {
         try {
             List<TaskCategory> categories = categoryDAO.getAllCategories();
@@ -348,7 +494,7 @@ public class Menu {
         }
     }
 
-
+    // everyone, every task
     private void handleMeasureExecutionTime() {
         try {
             TaskDAO taskDAO = new TaskDAO();

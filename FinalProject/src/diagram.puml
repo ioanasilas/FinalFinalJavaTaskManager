@@ -1,79 +1,62 @@
 @startuml
-
 package com.example {
 
-interface Filterable {
-      + Task[] filterByPriority(int priority)
-      + Task[] filterByDeadline(String deadlineString)
-  }
-
-  class TaskFilter {
-      - String filename
-      + TaskFilter(String)
-      + Task[] filterByPriority(int priority)
-      + Task[] filterByDeadline(String deadlineInput)
-  }
-
-  interface Statsable {
-      + int getTotalTasks()
-      + double getAveragePriority()
-  }
-
-  class TaskStats {
-      - List<Task> tasks
-      + int getTotalTasks()
-      + double getAveragePriority()
-  }
-
-  class Task {
-      - String title
-      - String description
-      - int priority
-      - LocalDate deadline
-      + int compareTo(Task)
-  }
-
-  class TaskCategory {
-      - String categoryName
-      - Map<String, Task> taskMap
-      + void addTask(Task)
-      + Task getTaskByName(String)
-      + void removeTask(Task)
-  }
-
-  class TaskManager {
-      - Task currentTask
-      - static TaskCategory[] categories
-      + boolean addTaskToCategory(Task, TaskCategory)
-      + boolean removeTaskFromCategory(Task, TaskCategory)
-
-  }
-
-class InvalidPriorityException <<exception>> {
-    + InvalidPriorityException(String message)
+class Task {
+    - String title
+    - String description
+    - int priority
+    - LocalDate deadline
+    + int compareTo(Task)
 }
 
-class DuplicateTaskException <<exception>> {
-    + DuplicateTaskException(String message)
+class TaskCategory {
+    - String categoryName
+    + int getTotalTasks()
+    + double getAveragePriority()
 }
 
-class CategoryNotFoundException <<exception>> {
-    + CategoryNotFoundException(String message)
+class User {
+    - String username
+    - String role
+    + String getRole()
 }
 
-  TaskManager "1" --* "*" TaskCategory : manages
-  TaskManager "1" --o "1" Task : manages
-  TaskCategory "1" -- "*" Task : contains
-  Task "1" -- "1" TaskCategory : belongs to
-  TaskStats "1" .. "1" Statsable : implements
-  TaskStats "1" --* "*" Task : manages
-  TaskFilter "1" ..|> "1" Filterable : implements
-  TaskFilter "1" --* "*" Task : filters
-
-  TaskManager --> InvalidPriorityException : throws
-  TaskManager --> DuplicateTaskException : throws
-  TaskManager --> CategoryNotFoundException : throws
-
+class TaskDAO {
+    + List<Task> getAllTasks()
+    + void addTask(Task, int userId)
 }
 
+class TaskCategoryDAO {
+    + List<TaskCategory> getAllCategories()
+    + void addCategory(String categoryName)
+}
+
+class Menu {
+    + void handleAddTask()
+    + void handleViewCategories()
+}
+
+class TaskManager {
+    - Task currentTask
+    + boolean addTask(String, String, int, LocalDate, String, int)
+    + void removeTask(String)
+    + Task getCurrentTask()
+}
+
+TaskManager "1" --> TaskDAO : interacts
+TaskManager "1" --> TaskCategoryDAO : interacts
+TaskManager "1" -- "1" Task : manages
+TaskManager "1" --* "*" TaskCategory : accesses
+
+TaskCategory "1" --* "*" Task : contains
+Task "1" -- "1" TaskCategory : belongs to
+Menu "1" --> "*" User : interacts
+Menu "1" --> TaskDAO : queries
+Menu "1" --> TaskCategoryDAO : queries
+Menu "1" --> TaskManager : controls
+TaskDAO "1" --> "*" Task : manages
+TaskCategoryDAO "1" --> "*" TaskCategory : manages
+
+User "1" .. "1" Menu : logs in
+}
 @enduml

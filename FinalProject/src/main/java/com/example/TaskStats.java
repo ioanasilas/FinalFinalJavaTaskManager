@@ -57,22 +57,30 @@ public class TaskStats implements Statsable {
 
     private int runTaskStatsThreadsAndAggregate(TaskStatsAggregator aggregator, int threadCount) {
         List<TaskStatsThread> threads = new ArrayList<>();
+        // add threadCount so we round up not truncate so we do not remain uncovered
+        // not just thread count cuz we might end up rounding up too much
         int chunkSize = (tasks.size() + threadCount - 1) / threadCount; // divide tasks into nearly equal chunks
 
         for (int i = 0; i < threadCount; i++) {
             int start = i * chunkSize;
+            // we do not want to process beyond the size
             int end = Math.min(start + chunkSize, tasks.size());
             if (start < end) {
                 threads.add(new TaskStatsThread(tasks.subList(start, end)));
             }
         }
 
+        // each thread begins execution async (run method)
+        // main thread running loop does not wait for these just continues
         for (TaskStatsThread thread : threads) {
             thread.start();
         }
 
         int result = 0;
         try {
+            // main thread waits until current finishes execution
+            // then aggregates result
+            // so main thread processes just after all threads are done
             for (TaskStatsThread thread : threads) {
                 thread.join();
                 result += aggregator.aggregate(thread);
